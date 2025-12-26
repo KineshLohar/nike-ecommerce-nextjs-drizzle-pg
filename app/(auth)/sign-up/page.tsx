@@ -1,4 +1,5 @@
 import AuthForm from "@/components/AuthForm";
+import { signUp } from "@/src/lib/auth/actions";
 
 const SignUpPage = () => {
   return (
@@ -10,6 +11,7 @@ const SignUpPage = () => {
       topLinkPrefix="Already have an account?"
       topLinkLabel="Sign In"
       topLinkHref="/sign-in"
+      onSubmit={signUp}
     />
   );
 };

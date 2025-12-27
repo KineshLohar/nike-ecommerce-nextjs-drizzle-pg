@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, integer, boolean } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { products } from "./products";
 import { variants } from "./variants";
+import z from "zod";
 
 export const productImages = pgTable("product_images", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -27,6 +28,18 @@ export const productImagesRelations = relations(productImages, ({ one }) => ({
   }),
 }));
 
-export type ProductImage = typeof productImages.$inferSelect;
-export type NewProductImage = typeof productImages.$inferInsert;
+export const insertProductImageSchema = z.object({
+  productId: z.string().uuid(),
+  variantId: z.string().uuid().optional().nullable(),
+  url: z.string().min(1),
+  sortOrder: z.number().int().optional(),
+  isPrimary: z.boolean().optional(),
+});
+
+export const selectProductImageSchema = insertProductImageSchema.extend({
+  id: z.string().uuid(),
+});
+
+export type InsertProductImage = z.infer<typeof insertProductImageSchema>;
+export type SelectProductImage = z.infer<typeof selectProductImageSchema>;
 

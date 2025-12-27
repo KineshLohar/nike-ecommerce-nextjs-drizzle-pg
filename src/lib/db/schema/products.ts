@@ -8,6 +8,7 @@ import { productImages } from "./product-images";
 import { reviews } from "./reviews";
 import { wishlists } from "./wishlists";
 import { productCollections } from "./product-collections";
+import z from "zod";
 
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -54,6 +55,22 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   collections: many(productCollections),
 }));
 
-export type Product = typeof products.$inferSelect;
-export type NewProduct = typeof products.$inferInsert;
+export const insertProductSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  categoryId: z.string().uuid().optional().nullable(),
+  genderId: z.string().uuid().optional().nullable(),
+  brandId: z.string().uuid().optional().nullable(),
+  isPublished: z.boolean().optional(),
+  defaultVariantId: z.string().uuid().optional().nullable(),
+  createdAt: z.date().optional(),
+  updatedAt: z.date().optional(),
+});
+
+export const selectProductSchema = insertProductSchema.extend({
+  id: z.string().uuid(),
+});
+
+export type InsertProduct = z.infer<typeof insertProductSchema>;
+export type SelectProduct = z.infer<typeof selectProductSchema>;
 

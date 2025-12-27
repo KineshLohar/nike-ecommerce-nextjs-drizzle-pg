@@ -1,4 +1,7 @@
+import { relations } from "drizzle-orm";
 import { pgTable, uuid, varchar } from "drizzle-orm/pg-core";
+import { variants } from "../variants";
+import z from "zod";
 
 export const colors = pgTable("colors", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -7,6 +10,19 @@ export const colors = pgTable("colors", {
   hexCode: varchar("hex_code", { length: 7 }).notNull(), // #RRGGBB format
 });
 
-export type Color = typeof colors.$inferSelect;
-export type NewColor = typeof colors.$inferInsert;
+
+export const colorsRelations = relations(colors, ({ many }) => ({
+  variants: many(variants),
+}));
+
+export const insertColorSchema = z.object({
+  name: z.string().min(1),
+  slug: z.string().min(1),
+  hexCode: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+});
+export const selectColorSchema = insertColorSchema.extend({
+  id: z.string().uuid(),
+});
+export type InsertColor = z.infer<typeof insertColorSchema>;
+export type SelectColor = z.infer<typeof selectColorSchema>;
 

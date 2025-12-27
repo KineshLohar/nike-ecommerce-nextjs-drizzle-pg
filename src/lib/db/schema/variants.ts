@@ -5,6 +5,7 @@ import { colors } from "./filters/colors";
 import { sizes } from "./filters/sizes";
 import { cartItems } from "./cart-items";
 import { orderItems } from "./order-items";
+import z from "zod";
 
 export const variants = pgTable("product_variants", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -43,6 +44,31 @@ export const variantsRelations = relations(variants, ({ one, many }) => ({
   orderItems: many(orderItems),
 }));
 
-export type Variant = typeof variants.$inferSelect;
-export type NewVariant = typeof variants.$inferInsert;
+export const insertVariantSchema = z.object({
+  productId: z.string().uuid(),
+  sku: z.string().min(1),
+  price: z.string(),
+  salePrice: z.string().optional().nullable(),
+  colorId: z.string().uuid(),
+  sizeId: z.string().uuid(),
+  inStock: z.number().int().nonnegative().optional(),
+  weight: z.number().optional().nullable(),
+  dimensions: z
+    .object({
+      length: z.number(),
+      width: z.number(),
+      height: z.number(),
+    })
+    .partial()
+    .optional()
+    .nullable(),
+  createdAt: z.date().optional(),
+});
+
+export const selectVariantSchema = insertVariantSchema.extend({
+  id: z.string().uuid(),
+});
+
+export type InsertVariant = z.infer<typeof insertVariantSchema>;
+export type SelectVariant = z.infer<typeof selectVariantSchema>;
 

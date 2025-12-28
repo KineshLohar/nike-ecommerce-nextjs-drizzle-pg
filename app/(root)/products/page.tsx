@@ -2,7 +2,7 @@
 import Filters from "@/components/Filters";
 import Sort from "@/components/Sort";
 import Card from "@/src/components/Card";
-import { getAllProducts } from "@/src/lib/actions/product";
+import { getAllProducts, getAllProducts2 } from "@/src/lib/actions/product";
 import { parseFilterParams } from "@/src/lib/utils/query";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -15,7 +15,12 @@ export default async function ProductsPage({
   const sp = await searchParams;
 
   const parsed = parseFilterParams(sp);
-  const { products, totalCount } = await getAllProducts(parsed);
+  console.log("PARSED",parsed);
+  
+  const { products, totalCount } = await getAllProducts2(parsed);
+
+  console.log("PRODUCTS", products);
+  
 
   const activeBadges: string[] = [];
   (sp.gender ? (Array.isArray(sp.gender) ? sp.gender : [sp.gender]) : []).forEach((g) =>

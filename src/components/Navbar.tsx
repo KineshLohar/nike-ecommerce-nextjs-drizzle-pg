@@ -18,12 +18,12 @@ export interface NavbarProps {
 }
 
 const defaultLinks: NavLink[] = [
-  { label: "Men", href: "#" },
-  { label: "Women", href: "#" },
-  { label: "Kids", href: "#" },
-  { label: "Collections", href: "#" },
-  { label: "Contact", href: "#" },
-];
+  { label: "Men", href: "/products?gender=men" },
+  { label: "Women", href: "/products?gender=women" },
+  { label: "Kids", href: "/products?gender=unisex" },
+  { label: "Collections", href: "/collections" },
+  { label: "Contact", href: "/contact" },
+] as const;
 
 const cn = (...classes: Array<string | false | undefined>): string =>
   classes.filter(Boolean).join(" ");

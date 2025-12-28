@@ -40,7 +40,189 @@ type ProductListItem = {
 export type GetAllProductsResult = {
   products: ProductListItem[];
   totalCount: number;
-};
+};  
+  
+  export async function getAllProducts2(
+    filters: NormalizedProductFilters
+  ): Promise<GetAllProductsResult> {
+    /* --------------------------------------------
+     * Pagination
+     * -------------------------------------------- */
+    const page = Math.max(1, filters.page ?? 1);
+    const limit = Math.min(60, Math.max(1, filters.limit ?? 24));
+    const offset = (page - 1) * limit;
+  
+    /* --------------------------------------------
+     * Base product filters
+     * -------------------------------------------- */
+    const productConds: SQL[] = [eq(products.isPublished, true)];
+  
+    if (filters.search) {
+      const q = `%${filters.search}%`;
+      productConds.push(
+        or(
+          ilike(products.name, q),
+          ilike(products.description, q)
+        )!
+      );
+    }
+  
+    if (filters.genderSlugs?.length) {
+      productConds.push(inArray(genders.slug, filters.genderSlugs));
+    }
+  
+    if (filters.brandSlugs?.length) {
+      productConds.push(inArray(brands.slug, filters.brandSlugs));
+    }
+  
+    if (filters.categorySlugs?.length) {
+      productConds.push(inArray(categories.slug, filters.categorySlugs));
+    }
+  
+    /* --------------------------------------------
+     * Variant filter conditions (EXISTS)
+     * -------------------------------------------- */
+    const variantConds: SQL[] = [];
+  
+    if (filters.sizeSlugs?.length) {
+      variantConds.push(
+        inArray(
+          variants.sizeId,
+          db
+            .select({ id: sizes.id })
+            .from(sizes)
+            .where(inArray(sizes.slug, filters.sizeSlugs))
+        )
+      );
+    }
+  
+    if (filters.colorSlugs?.length) {
+      variantConds.push(
+        inArray(
+          variants.colorId,
+          db
+            .select({ id: colors.id })
+            .from(colors)
+            .where(inArray(colors.slug, filters.colorSlugs))
+        )
+      );
+    }
+  
+    if (filters.priceRanges?.length) {
+      const priceOr: SQL[] = filters.priceRanges.map(([min, max]) => {
+        const c: SQL[] = [];
+        if (min !== undefined) c.push(sql`${variants.price}::numeric >= ${min}`);
+        if (max !== undefined) c.push(sql`${variants.price}::numeric <= ${max}`);
+        return and(...c)!;
+      });
+      variantConds.push(or(...priceOr)!);
+    }
+  
+    const variantExists =
+      variantConds.length > 0
+        ? sql`exists (
+            select 1
+            from ${variants}
+            where ${variants.productId} = ${products.id}
+            and ${and(...variantConds)}
+          )`
+        : undefined;
+  
+    /* --------------------------------------------
+     * Price aggregation (ALL variants)
+     * -------------------------------------------- */
+    const minPrice = sql<number | null>`min(${variants.price}::numeric)`;
+    const maxPrice = sql<number | null>`max(${variants.price}::numeric)`;
+  
+    /* --------------------------------------------
+     * Primary image subquery
+     * -------------------------------------------- */
+    const imageSubquery = db
+      .select({
+        productId: productImages.productId,
+        url: productImages.url,
+        rn: sql<number>`
+          row_number() over (
+            partition by ${productImages.productId}
+            order by ${productImages.isPrimary} desc, ${productImages.sortOrder} asc
+          )
+        `.as("rn"),
+      })
+      .from(productImages)
+      .as("img");
+  
+    /* --------------------------------------------
+     * Sorting
+     * -------------------------------------------- */
+    const orderBy =
+      filters.sort === "price_asc"
+        ? asc(minPrice)
+        : filters.sort === "price_desc"
+        ? desc(maxPrice)
+        : desc(products.createdAt);
+  
+    /* --------------------------------------------
+     * Main query
+     * -------------------------------------------- */
+    const rows = await db
+      .select({
+        id: products.id,
+        name: products.name,
+        createdAt: products.createdAt,
+        subtitle: genders.label,
+        minPrice,
+        maxPrice,
+        imageUrl: sql<string | null>`
+          max(case when ${imageSubquery.rn} = 1 then ${imageSubquery.url} end)
+        `,
+      })
+      .from(products)
+      .leftJoin(variants, eq(variants.productId, products.id)) // ALL variants
+      .leftJoin(imageSubquery, eq(imageSubquery.productId, products.id))
+      .leftJoin(genders, eq(genders.id, products.genderId))
+      .leftJoin(brands, eq(brands.id, products.brandId))
+      .leftJoin(categories, eq(categories.id, products.categoryId))
+      .where(and(...productConds, variantExists))
+      .groupBy(
+        products.id,
+        products.name,
+        products.createdAt,
+        genders.label
+      )
+      .orderBy(orderBy, desc(products.createdAt))
+      .limit(limit)
+      .offset(offset);
+  
+    /* --------------------------------------------
+     * Count query
+     * -------------------------------------------- */
+    const countRows = await db
+      .select({
+        cnt: count(sql`distinct ${products.id}`),
+      })
+      .from(products)
+      .leftJoin(genders, eq(genders.id, products.genderId))
+      .leftJoin(brands, eq(brands.id, products.brandId))
+      .leftJoin(categories, eq(categories.id, products.categoryId))
+      .where(and(...productConds, variantExists));
+  
+    /* --------------------------------------------
+     * Final mapping
+     * -------------------------------------------- */
+    return {
+      products: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        imageUrl: r.imageUrl,
+        minPrice: r.minPrice === null ? null : Number(r.minPrice),
+        maxPrice: r.maxPrice === null ? null : Number(r.maxPrice),
+        createdAt: r.createdAt,
+        subtitle: r.subtitle ? `${r.subtitle} Shoes` : null,
+      })),
+      totalCount: countRows[0]?.cnt ?? 0,
+    };
+  }
+  
 
 export async function getAllProducts(filters: NormalizedProductFilters): Promise<GetAllProductsResult> {
   const conds: SQL[] = [eq(products.isPublished, true)];
@@ -50,39 +232,39 @@ export async function getAllProducts(filters: NormalizedProductFilters): Promise
     conds.push(or(ilike(products.name, pattern), ilike(products.description, pattern))!);
   }
 
-  if (filters.genderSlugs.length) {
+  if (filters?.genderSlugs?.length) {
     conds.push(inArray(genders.slug, filters.genderSlugs));
   }
 
-  if (filters.brandSlugs.length) {
+  if (filters?.brandSlugs?.length) {
     conds.push(inArray(brands.slug, filters.brandSlugs));
   }
 
-  if (filters.categorySlugs.length) {
-    conds.push(inArray(categories.slug, filters.categorySlugs));
+  if (filters?.categorySlugs?.length) {
+    conds.push(inArray(categories.slug, filters?.categorySlugs));
   }
 
-  const hasSize = filters.sizeSlugs.length > 0;
-  const hasColor = filters.colorSlugs.length > 0;
-  const hasPrice = !!(filters.priceMin !== undefined || filters.priceMax !== undefined || filters.priceRanges.length);
+  const hasSize = filters?.sizeSlugs?.length || 0 > 0;
+  const hasColor = filters?.colorSlugs?.length || 0 > 0;
+  const hasPrice = !!(filters.priceMin !== undefined || filters.priceMax !== undefined || filters?.priceRanges?.length);
 
   const variantConds: SQL[] = [];
   if (hasSize) {
     variantConds.push(inArray(variants.sizeId, db
       .select({ id: sizes.id })
       .from(sizes)
-      .where(inArray(sizes.slug, filters.sizeSlugs))));
+      .where(inArray(sizes?.slug, filters?.sizeSlugs || []))));
   }
   if (hasColor) {
     variantConds.push(inArray(variants.colorId, db
       .select({ id: colors.id })
       .from(colors)
-      .where(inArray(colors.slug, filters.colorSlugs))));
+      .where(inArray(colors.slug, filters?.colorSlugs || []))));
   }
   if (hasPrice) {
     const priceBounds: SQL[] = [];
-    if (filters.priceRanges.length) {
-      for (const [min, max] of filters.priceRanges) {
+    if (filters?.priceRanges?.length) {
+      for (const [min, max] of filters?.priceRanges) {
         const subConds: SQL[] = [];
         if (min !== undefined) {
           subConds.push(sql`(${variants.price})::numeric >= ${min}`);
@@ -127,7 +309,7 @@ export async function getAllProducts(filters: NormalizedProductFilters): Promise
         .where(
           inArray(
             variants.colorId,
-            db.select({ id: colors.id }).from(colors).where(inArray(colors.slug, filters.colorSlugs))
+            db.select({ id: colors.id }).from(colors).where(inArray(colors?.slug, filters?.colorSlugs || []))
           )
         )
         .as("pi")
@@ -158,8 +340,8 @@ export async function getAllProducts(filters: NormalizedProductFilters): Promise
       ? desc(sql`max(${variantJoin.price})`)
       : desc(products.createdAt);
 
-  const page = Math.max(1, filters.page);
-  const limit = Math.max(1, Math.min(filters.limit, 60));
+  const page = Math.max(1, filters?.page || 1);
+  const limit = Math.max(1, Math.min(filters?.limit || 0, 60));
   const offset = (page - 1) * limit;
 
   const rows = await db

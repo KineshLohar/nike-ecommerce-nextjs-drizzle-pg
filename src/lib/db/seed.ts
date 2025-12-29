@@ -250,7 +250,7 @@ async function seed() {
     const uniqueCategories = Array.from(
       new Set(nikeProducts.map((p) => p.category))
     );
-    const insertedCategories = await db
+    const insertedCategories = (await db
       .insert(schema.categories)
       .values(
         uniqueCategories.map((cat) => ({
@@ -258,7 +258,7 @@ async function seed() {
           slug: cat.toLowerCase().replace(/\s+/g, "-"),
         }))
       )
-      .returning();
+      .returning()) as (typeof schema.categories.$inferSelect)[];
     insertedCategories.forEach((cat) => {
       categoryMap.set(cat.name, cat.id);
     });
@@ -299,7 +299,7 @@ async function seed() {
     for (const productData of nikeProducts) {
       try {
         // Create product
-        const [product] = await db
+        const products = (await db
           .insert(schema.products)
           .values({
             name: productData.name,
@@ -309,7 +309,10 @@ async function seed() {
             brandId: nikeBrand.id,
             isPublished: true,
           })
-          .returning();
+          .returning()) as (typeof schema.products.$inferSelect)[];
+
+        const [product] = products;
+
 
         productCount++;
 
@@ -327,7 +330,7 @@ async function seed() {
             const sku = `NIKE-${product.name
               .replace(/\s+/g, "-")
               .toUpperCase()}-${color.slug.toUpperCase()}-${size.slug.toUpperCase()}`;
-            const [variant] = await db
+            const variants = (await db
               .insert(schema.variants)
               .values({
                 productId: product.id,
@@ -347,7 +350,10 @@ async function seed() {
                   height: Math.floor(Math.random() * 5) + 10,
                 },
               })
-              .returning();
+              .returning()) as (typeof schema.variants.$inferSelect)[];
+
+            const [variant] = variants;
+
             variantIds.push(variant.id);
             variantCount++;
           }

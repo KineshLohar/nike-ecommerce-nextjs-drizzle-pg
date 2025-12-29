@@ -1,47 +1,44 @@
+// ColorSwatches.tsx
 "use client";
 
-import Image from "next/image";
 import { Check } from "lucide-react";
 import { useVariantStore } from "@/src/store/variant";
+import type { FullProduct } from "@/src/lib/actions/product";
 
-type Variant = { color: string; images: string[] };
-
-export interface ColorSwatchesProps {
+type Props = {
   productId: string;
-  variants: Variant[];
-  className?: string;
-}
+  variants: FullProduct["variants"];
+};
 
-function firstValidImage(images: string[]) {
-  return images.find((s) => typeof s === "string" && s.trim().length > 0);
-}
-
-export default function ColorSwatches({ productId, variants, className = "" }: ColorSwatchesProps) {
+export default function ColorSwatches({ productId, variants }: Props) {
   const setSelected = useVariantStore((s) => s.setSelected);
   const selected = useVariantStore((s) => s.getSelected(productId, 0));
 
+  // unique colors (IMPORTANT)
+  const colors = Array.from(
+    new Map(
+      variants
+        .filter(v => v.color)
+        .map(v => [v.color!.id, v.color!])
+    ).values()
+  );
+
   return (
-    <div className={`flex flex-wrap gap-3 ${className}`} role="listbox" aria-label="Choose color">
-      {variants.map((v, i) => {
-        const src = firstValidImage(v.images);
-        if (!src) return null;
-        const isActive = selected === i;
+    <div className="flex flex-wrap gap-3">
+      {colors.map((c, index) => {
+        const isActive = selected === index;
         return (
           <button
-            key={`${v.color}-${i}`}
-            onClick={() => setSelected(productId, i)}
-            aria-label={`Color ${v.color}`}
-            aria-selected={isActive}
-            role="option"
-            className={`relative h-[72px] w-[120px] overflow-hidden rounded-lg ring-1 ring-light-300 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[--color-dark-500] ${
-              isActive ? "ring-[--color-dark-500]" : "hover:ring-dark-500"
-            }`}
+            key={c.id}
+            onClick={() => setSelected(productId, index)}
+            className={`relative h-10 w-10 rounded-full border
+              ${isActive ? "ring-2 ring-dark-900" : "border-light-300"}
+            `}
+            style={{ backgroundColor: c.hexCode }}
+            aria-label={c.name}
           >
-            <Image src={src} alt={v.color} fill sizes="120px" className="object-cover" />
             {isActive && (
-              <span className="absolute right-1 top-1 rounded-full bg-light-100 p-1">
-                <Check className="h-4 w-4 text-dark-900" />
-              </span>
+              <Check className="absolute inset-0 m-auto h-4 w-4 text-white" />
             )}
           </button>
         );

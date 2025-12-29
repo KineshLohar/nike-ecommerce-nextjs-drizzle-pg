@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { ShoppingBag } from "lucide-react";
+import { useCartStore } from "@/src/store/cart";
 
 type NavLink = {
   label: string;
@@ -12,8 +14,6 @@ type NavLink = {
 export interface NavbarProps {
   links?: NavLink[];
   logoSrc?: string;
-  cartCount?: number;
-  showSearch?: boolean;
   className?: string;
 }
 
@@ -23,19 +23,27 @@ const defaultLinks: NavLink[] = [
   { label: "Kids", href: "/products?gender=unisex" },
   { label: "Collections", href: "/collections" },
   { label: "Contact", href: "/contact" },
-] as const;
+];
 
-const cn = (...classes: Array<string | false | undefined>): string =>
+const cn = (...classes: Array<string | false | undefined>) =>
   classes.filter(Boolean).join(" ");
 
 const Navbar = ({
   links = defaultLinks,
   logoSrc = "/logo.svg",
-  cartCount = 0,
-  showSearch = true,
   className,
 }: NavbarProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  /* ----------------------------
+   * Cart state (Zustand)
+   * ---------------------------- */
+  const items = useCartStore((s) => s.items);
+
+  const cartCount = useMemo(
+    () => items.reduce((sum, i) => sum + i.quantity, 0),
+    [items]
+  );
 
   return (
     <header
@@ -45,6 +53,7 @@ const Navbar = ({
       )}
     >
       <nav className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 md:px-6 lg:px-8">
+        {/* Logo */}
         <div className="flex items-center gap-3">
           <Link href="/" aria-label="Home">
             <Image
@@ -58,30 +67,29 @@ const Navbar = ({
           </Link>
         </div>
 
+        {/* Mobile menu toggle */}
         <button
           type="button"
           aria-label="Toggle navigation"
           aria-expanded={isMenuOpen}
-          onClick={() => setIsMenuOpen((open) => !open)}
-          className="ml-auto inline-flex items-center justify-center rounded-full border border-[var(--color-light-300)] bg-[var(--color-light-100)] p-2 text-[color:var(--color-dark-900)] transition hover:border-[var(--color-dark-900)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-dark-900)] md:hidden"
+          onClick={() => setIsMenuOpen((o) => !o)}
+          className="ml-auto inline-flex items-center justify-center rounded-full border border-light-300 bg-light-100 p-2 text-dark-900 transition hover:border-dark-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dark-900 md:hidden"
         >
           <span className="sr-only">Toggle menu</span>
-          <span
-            aria-hidden
-            className="flex h-4 w-5 flex-col justify-between"
-          >
+          <span aria-hidden className="flex h-4 w-5 flex-col justify-between">
             <span className="block h-[2px] w-full rounded-full bg-current" />
             <span className="block h-[2px] w-3/4 rounded-full bg-current" />
             <span className="block h-[2px] w-full rounded-full bg-current" />
           </span>
         </button>
 
-        <ul className="hidden flex-1 items-center justify-center gap-8 text-[length:var(--text-body)] font-[var(--text-body--font-weight)] leading-[var(--text-body--line-height)] md:flex">
+        {/* Desktop links */}
+        <ul className="hidden flex-1 items-center justify-center gap-8 md:flex">
           {links.map((link) => (
             <li key={link.label}>
               <Link
                 href={link.href}
-                className="transition hover:text-[var(--color-dark-700)]"
+                className="transition hover:text-dark-700"
               >
                 {link.label}
               </Link>
@@ -89,61 +97,58 @@ const Navbar = ({
           ))}
         </ul>
 
-        <div className="hidden items-center gap-6 text-[length:var(--text-body)] font-[var(--text-body--font-weight)] leading-[var(--text-body--line-height)] md:flex">
-          {showSearch && (
-            <button
-              type="button"
-              className="transition hover:text-[color:var(--color-dark-700)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-dark-900)]"
-            >
-              Search
-            </button>
-          )}
-          <button
-            type="button"
-            className="flex items-center gap-2 transition hover:text-[color:var(--color-dark-700)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--color-dark-900)]"
+        {/* Cart (desktop) */}
+        <div className="hidden items-center gap-6 md:flex">
+          <Link
+            href="/cart"
+            className="relative flex items-center gap-2 transition hover:text-dark-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-dark-900"
           >
+            <ShoppingBag className="h-5 w-5" />
             <span>My Cart</span>
+
             {cartCount > 0 && (
-              <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--color-dark-900)] px-2 py-0.5 text-[color:var(--color-light-100)] text-[length:var(--text-footnote)] font-[var(--text-body-medium--font-weight)] leading-[var(--text-footnote--line-height)]">
+              <span className="absolute -right-3 -top-2 inline-flex min-w-5 items-center justify-center rounded-full bg-dark-900 px-1.5 py-0.5 text-footnote font-medium text-light-100">
                 {cartCount}
               </span>
             )}
-          </button>
+          </Link>
         </div>
       </nav>
 
+      {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="mx-4 mb-4 rounded-2xl border border-[var(--color-light-300)] bg-[var(--color-light-100)] text-[color:var(--color-dark-900)] shadow-md md:hidden">
+        <div className="mx-4 mb-4 rounded-2xl border border-light-300 bg-light-100 shadow-md md:hidden">
           <div className="flex flex-col gap-4 px-4 py-4">
-            {showSearch && (
-              <button
-                type="button"
-                className="text-left text-[length:var(--text-body)] font-[var(--text-body--font-weight)] leading-[var(--text-body--line-height)]"
-              >
-                Search
-              </button>
-            )}
-            <ul className="flex flex-col gap-3 text-[length:var(--text-body)] font-[var(--text-body--font-weight)] leading-[var(--text-body--line-height)]">
+            <ul className="flex flex-col gap-3">
               {links.map((link) => (
                 <li key={link.label}>
                   <Link
                     href={link.href}
                     onClick={() => setIsMenuOpen(false)}
-                    className="block rounded-lg px-2 py-2 transition hover:bg-[var(--color-light-200)]"
+                    className="block rounded-lg px-2 py-2 transition hover:bg-light-200"
                   >
                     {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
-            <div className="flex items-center justify-between text-[length:var(--text-body)] font-[var(--text-body--font-weight)] leading-[var(--text-body--line-height)]">
-              <span>My Cart</span>
+
+            <Link
+              href="/cart"
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center justify-between rounded-lg px-2 py-2 transition hover:bg-light-200"
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5" />
+                My Cart
+              </span>
+
               {cartCount > 0 && (
-                <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-[var(--color-dark-900)] px-2 py-1 text-[color:var(--color-light-100)] text-[length:var(--text-footnote)] leading-[var(--text-footnote--line-height)]">
+                <span className="inline-flex min-w-6 items-center justify-center rounded-full bg-dark-900 px-2 py-0.5 text-footnote text-light-100">
                   {cartCount}
                 </span>
               )}
-            </div>
+            </Link>
           </div>
         </div>
       )}
@@ -152,4 +157,3 @@ const Navbar = ({
 };
 
 export default Navbar;
-

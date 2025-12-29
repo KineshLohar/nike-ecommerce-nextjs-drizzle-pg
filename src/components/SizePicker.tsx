@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
 
 const SIZES = ["5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11", "11.5", "12"];
 
 export interface SizePickerProps {
+  sizes: {
+    id: string;
+    name: string;
+    inStock: number | undefined;
+  }[] | [];
+  selectedSizeId: string | null;
+  onChange: (sizeId: string | null) => void;
   className?: string;
 }
 
-export default function SizePicker({ className = "" }: SizePickerProps) {
-  const [selected, setSelected] = useState<string | null>(null);
+export default function SizePicker({ className = "", sizes, selectedSizeId, onChange }: SizePickerProps) {
 
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
@@ -21,18 +26,25 @@ export default function SizePicker({ className = "" }: SizePickerProps) {
       </div>
 
       <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
-        {SIZES.map((s) => {
-          const isActive = selected === s;
+        {sizes.map((s) => {
+          const isActive = selectedSizeId === s.id;
+          const isDisabled = s.inStock ? s.inStock === 0 ? true : false : false;
           return (
             <button
-              key={s}
-              onClick={() => setSelected(isActive ? null : s)}
-              className={`rounded-lg border px-3 py-3 text-center text-body transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[--color-dark-500] ${
-                isActive ? "border-dark-900 text-dark-900" : "border-light-300 text-dark-700 hover:border-dark-500"
-              }`}
+              key={s.id}
+              disabled={isDisabled}
+              onClick={() => onChange(isActive ? null : s.id)}
+              className={`
+                rounded-lg border px-3 py-3 text-body transition
+                ${isDisabled
+                  ? "border-light-300 text-light-400 cursor-not-allowed"
+                  : isActive
+                  ? "border-dark-900 text-dark-900"
+                  : "border-light-300 text-dark-700 hover:border-dark-500"}
+              `}
               aria-pressed={isActive}
             >
-              {s}
+              {s.name}
             </button>
           );
         })}

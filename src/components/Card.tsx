@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import AddToCartButton from "./AddToCartButton";
 
 type CardTone = "accent" | "success" | "neutral";
 
@@ -15,6 +16,7 @@ export interface CardProps {
     colorsCount?: number;
     href?: string;
     className?: string;
+    productVariantId?: string
 }
 
 const badgeStyles: Record<CardTone, string> = {
@@ -41,6 +43,7 @@ const Card = ({
     colorsCount,
     href,
     className,
+    productVariantId
 }: CardProps) => {
     const priceLabel =
         price === undefined
@@ -86,6 +89,11 @@ const Card = ({
                         </span>
                     )}
                 </div>
+
+                {productVariantId && (
+                    <AddToCartButton productVariantId={productVariantId} />
+                )}
+
                 {colorsCount ? (
                     <p className="mt-1 text-[length:var(--text-caption)] leading-[var(--text-caption--line-height)] text-[color:var(--color-dark-700)]">
                         {colorsCount} Colour{colorsCount > 1 ? "s" : ""}

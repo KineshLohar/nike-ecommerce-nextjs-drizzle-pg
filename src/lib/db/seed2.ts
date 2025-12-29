@@ -95,7 +95,7 @@ async function seed() {
 
   /* ---------- CATEGORIES ---------- */
   const uniqueCategories = [...new Set(PRODUCTS.map(p => p.category))]
-  const insertedCategories = await db
+  const insertedCategories = (await db
     .insert(schema.categories)
     .values(
       uniqueCategories.map(c => ({
@@ -103,7 +103,7 @@ async function seed() {
         slug: c.toLowerCase().replace(/\s+/g, "-"),
       }))
     )
-    .returning()
+    .returning()) as (typeof schema.categories.$inferSelect)[];
 
   const categoryMap = Object.fromEntries(insertedCategories.map(c => [c.name, c.id]))
 
@@ -115,7 +115,7 @@ async function seed() {
 
   /* ---------- PRODUCTS + VARIANTS + IMAGES ---------- */
   for (const item of PRODUCTS) {
-    const [product] = await db
+    const products = (await db
       .insert(schema.products)
       .values({
         name: item.name,
@@ -125,9 +125,12 @@ async function seed() {
         genderId: genderMap[item.gender],
         isPublished: true,
       })
-      .returning()
+      .returning()) as (typeof schema.products.$inferSelect)[];
 
-    const [variant] = await db
+    const [product] = products;
+
+
+    const variants = (await db
       .insert(schema.variants)
       .values({
         productId: product.id,
@@ -140,7 +143,10 @@ async function seed() {
         weight: "0.5",
         dimensions: { length: 30, width: 12, height: 10 },
       })
-      .returning()
+      .returning()) as (typeof schema.variants.$inferSelect)[];
+
+    const [variant] = variants;
+
 
     await db
       .update(schema.products)

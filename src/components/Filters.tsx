@@ -34,7 +34,7 @@ const Group = ({
     <div className="border-b border-light-300 py-4">
         <button
             className="flex w-full items-center justify-between text-body-medium text-dark-900"
-            onClick={() => setExpanded((s) => ({ ...s, [k]: !s[k] }))}
+            onClick={() => setExpanded((s: any) => ({ ...s, [k]: !s[k] }))}
             aria-expanded={expanded[k]}
             aria-controls={`${k}-section`}
         >
